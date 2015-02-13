@@ -10,6 +10,8 @@
 #include <gl\GL.h>
 #include <iostream>
 #include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
 
 using namespace std;
 
@@ -24,16 +26,18 @@ const GLuint ArrayBuffer = 0, colorBuffer = 1, NumBuffers = 2;
 const GLuint vPosition = 0, cPosition = 1;
 
 const GLuint TWO_TRIANGLES = 0, COLOR_TRIANGLE = 1, CIRCLE = 2;
+const GLfloat PI = 3.14159f;
 
 GLuint VAOs[NumVAOs];
 GLuint Buffers[NumBuffers];
 GLuint trialBuf[NumBuffers];
+GLuint circleBuf[NumBuffers];
 
 const GLuint NumVertices = 6;
 const GLuint NumTriangles = 2, NumColorTriangle = 1, NumCircle = 1;
 GLuint toggle[3] = { 1, 1, 0 };
 
-GLfloat r, g, b;
+GLfloat r = 1.0f, g = 1.0f, b = 0.0f;
 GLfloat globalTrianglesPositionArray[NumVertices][2];
 GLfloat globalTrianglesColorArray[NumVertices][3];
 
@@ -44,6 +48,8 @@ GLfloat globalColorTriangleColorArray[NumColorTriangle * 3][3];
 // Circle
 GLfloat **globalCirclePositionArray;
 GLfloat **globalCircleColorArray;
+GLuint numSteps = 10;
+GLfloat radius = 0.5;
 
 void init();
 
@@ -57,6 +63,12 @@ void keyboard(unsigned char key, int x, int y)
 	case 'c': case 'C':
 		cout << "Enter the RGB color components :: ";
 		cin >> r >> g >> b;
+		while ((r < 0 || r > 1) || (g < 0 || g > 1) || (b < 0 || b > 1))
+		{
+			cout << "Erroneous values for RGB. Please enter in range [0,1] :: ";
+			cin >> r >> g >> b;
+		}
+
 		for (int i = 0; i < NumTriangles * 3; ++i)
 		{
 			for (int j = 0; j < 3; ++j)
@@ -101,17 +113,89 @@ void keyboard(unsigned char key, int x, int y)
 		init();
 		glutPostRedisplay();
 		break;
+	case 'g': case 'G' :
+		cout << "\nInput the radius and number of steps :: ";
+		cin >> radius >> numSteps;
+		toggle[CIRCLE] = 1;
+		init();
+		glutPostRedisplay();
+		break;
 	default:
 		break;
 	}
 }
 
 /////////////////////////////////////////////////////
-//  int
+//  drawCircle
+/////////////////////////////////////////////////////
+GLfloat** allocateArray(GLuint numSteps, GLuint columns)
+{
+	GLfloat **temp, *vals;
+	vals = (GLfloat*)malloc(numSteps * columns * sizeof(GLfloat));
+	temp = (GLfloat**)malloc(numSteps * sizeof(GLfloat*));
+
+	for (GLuint i = 0; i < numSteps; ++i)
+		temp[i] = &(vals[columns * i]);
+
+	return temp;
+}
+
+/////////////////////////////////////////////////////
+//  drawCircle
+/////////////////////////////////////////////////////
+
+void drawCircle(GLfloat radius, GLuint numSteps)
+{
+	globalCirclePositionArray = allocateArray(numSteps + 2, 2);
+	globalCircleColorArray = allocateArray(numSteps + 2, 3);
+
+	GLuint i; GLfloat twoPI = 2 * PI;
+	globalCirclePositionArray[0][0] = 0;
+	globalCirclePositionArray[0][1] = 0;
+	globalCircleColorArray[0][0] = r;
+	globalCircleColorArray[0][1] = g;
+	globalCircleColorArray[0][2] = b;
+	for (i = 1; i <= numSteps + 1; ++i)
+	{
+		globalCirclePositionArray[i][0] = radius * cos((i-1) * (twoPI / numSteps));
+		globalCirclePositionArray[i][1] = radius * sin((i-1) * (twoPI / numSteps));
+
+		globalCircleColorArray[i][0] = r;
+		globalCircleColorArray[i][1] = g;
+		globalCircleColorArray[i][2] = b;
+	}
+
+	for (int i = 0; i < numSteps; ++i)
+	{
+		cout << globalCirclePositionArray[i][0] << "," << globalCirclePositionArray[i][1] << endl;
+	}
+
+	glBindVertexArray(VAOs[circle]);
+
+	glGenBuffers(NumBuffers, circleBuf);
+	glBindBuffer(GL_ARRAY_BUFFER, circleBuf[0]);
+	glBufferData(GL_ARRAY_BUFFER, (numSteps + 2) * 2 * sizeof(GLfloat), 
+				 globalCirclePositionArray[0], GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ARRAY_BUFFER, circleBuf[1]);
+	glBufferData(GL_ARRAY_BUFFER, (numSteps + 2) * 3 * sizeof(GLfloat), 
+				 globalCircleColorArray[0], GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ARRAY_BUFFER, circleBuf[0]);
+	glVertexAttribPointer(vPosition, 2, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
+	glEnableVertexAttribArray(vPosition);
+
+	glBindBuffer(GL_ARRAY_BUFFER, circleBuf[1]);
+	glVertexAttribPointer(cPosition, 3, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
+	glEnableVertexAttribArray(cPosition);
+}
+
+/////////////////////////////////////////////////////
+//  init
 /////////////////////////////////////////////////////
 void init()
 {
-
+	glGenVertexArrays(NumVAOs, VAOs);
 	ShaderInfo  shaders[] = {
 		{ GL_VERTEX_SHADER, "triangles.vert" },
 		{ GL_FRAGMENT_SHADER, "triangles.frag" },
@@ -123,7 +207,6 @@ void init()
 
 	if (toggle[TWO_TRIANGLES] == 1)
 	{
-		glGenVertexArrays(NumVAOs, VAOs);
 		glBindVertexArray(VAOs[Triangles]);
 
 		GLfloat vertices[NumVertices][2], colors[NumVertices][3];
@@ -190,6 +273,11 @@ void init()
 		glVertexAttribPointer(cPosition, 3, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
 		glEnableVertexAttribArray(cPosition);
 	}
+
+	if (toggle[CIRCLE] == 1)
+	{
+		drawCircle(radius, numSteps);
+	}
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -211,7 +299,14 @@ void display(void)
 		glDrawArrays(GL_TRIANGLES, 0, 3);
 	}
 
+	if (toggle[CIRCLE] == 1)
+	{
+		glBindVertexArray(VAOs[circle]);
+		glDrawArrays(GL_TRIANGLE_FAN, 0, numSteps+2);
+	}
+
 	glFlush();
+
 }
 
 ////////////////////////////////////////////////////////////////////////
