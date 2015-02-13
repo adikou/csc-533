@@ -10,7 +10,7 @@
 #include <stdio.h>  // linux
 
 #define GLEW_STATIC
-#include "Libraries\glew\glew.h"
+#include "GL/glew.h"
 #include "LoadShaders.h"
 
 #ifdef __cplusplus
