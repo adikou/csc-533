@@ -60,6 +60,20 @@ void keyboard(unsigned char key, int x, int y)
 		init();
 		glutPostRedisplay();
 		break;
+	case 'w': case 'W':
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		glLineWidth(2.5);
+		init();
+		glutPostRedisplay();
+		break;
+	case 's': case 'S':
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		init();
+		glutPostRedisplay();
+		break;
+	case 'q': case 'Q': case 27:
+		exit(EXIT_SUCCESS);
+		break;
 	default:
 		break;
 	}
