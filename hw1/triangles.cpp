@@ -18,14 +18,15 @@ using namespace std;
 //enum VAO_IDs { Triangles, NumVAOs };
 const GLuint Triangles = 0, NumVAOs = 1;
 //enum Buffer_IDs { ArrayBuffer, NumBuffers };
-const GLuint ArrayBuffer = 0, NumBuffers = 1;
+const GLuint ArrayBuffer = 0, colorBuffer = 1, NumBuffers = 2;
 //enum Attrib_IDs { vPosition = 0 };
-const GLuint vPosition = 0;
+const GLuint vPosition = 0, cPosition = 1;
 
 GLuint VAOs[NumVAOs];
 GLuint Buffers[NumBuffers];
 
-const GLuint NumVertices = 6;
+const GLuint NumVertices = 9;
+GLuint toggle[3] = { 1, 1, 0 };
 
 /////////////////////////////////////////////////////
 //  int
@@ -41,12 +42,30 @@ void init(void)
 		{ -0.90f, 0.85f },
 		{ 0.90f, -0.85f },	// Triangle 2
 		{ 0.90f, 0.90f },
-		{ -0.85f, 0.90f }
+		{ -0.85f, 0.90f },
+		{ 0.0f, 0.5f},		// Center triangle
+		{ -0.5f, -0.5f},
+		{ 0.50f, -0.5f}
+	};
+	
+	GLfloat colors[NumVertices][3] = {
+		{ 0.0f, 0.0f, 1.0f }, // Triangle 1
+		{ 0.0f, 0.0f, 1.0f },
+		{ 0.0f, 0.0f, 1.0f },
+		{ 0.0f, 0.0f, 1.0f }, // Triangle 2
+		{ 0.0f, 0.0f, 1.0f },
+		{ 0.0f, 0.0f, 1.0f },
+		{ 1.0f, 0.0f, 0.0f }, // Center triangle
+		{ 0.0f, 0.0f, 1.0f },
+		{ 0.0f, 1.0f, 0.0f }
 	};
 
 	glGenBuffers(NumBuffers, Buffers);
 	glBindBuffer(GL_ARRAY_BUFFER, Buffers[ArrayBuffer]);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ARRAY_BUFFER, Buffers[colorBuffer]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(colors), colors, GL_STATIC_DRAW);
 
 	ShaderInfo  shaders[] = {
 		{ GL_VERTEX_SHADER, "triangles.vert" },
@@ -57,9 +76,13 @@ void init(void)
 	GLuint program = LoadShaders(shaders);
 	glUseProgram(program);
 
+	glBindBuffer(GL_ARRAY_BUFFER, Buffers[ArrayBuffer]);
 	glVertexAttribPointer(vPosition, 2, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
 	glEnableVertexAttribArray(vPosition);
 
+	glBindBuffer(GL_ARRAY_BUFFER, Buffers[colorBuffer]);
+	glVertexAttribPointer(cPosition, 3, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
+	glEnableVertexAttribArray(cPosition);
 }
 
 ////////////////////////////////////////////////////////////////////
