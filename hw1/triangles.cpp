@@ -9,6 +9,7 @@
 
 #include <gl\GL.h>
 #include <iostream>
+#include <stdio.h>
 
 using namespace std;
 
@@ -26,39 +27,65 @@ GLuint VAOs[NumVAOs];
 GLuint Buffers[NumBuffers];
 
 const GLuint NumVertices = 9;
+const GLuint NumTriangles = 2, NumColorTriangle = 1, NumCircle = 1;
 GLuint toggle[3] = { 1, 1, 0 };
+
+GLfloat r, g, b;
+GLfloat globalPositionArray[NumVertices][2], globalColorArray[NumVertices][3];
+
+void init();
+
+/////////////////////////////////////////////////////
+//  Keyboard callback
+/////////////////////////////////////////////////////
+void keyboard(unsigned char key, int x, int y)
+{
+	switch (key)
+	{
+	case 'c': case 'C':
+		cout << "Enter the RGB color components :: ";
+		cin >> r >> g >> b;
+		for (int i = 0; i < NumTriangles * 3; ++i)
+		{
+			for (int j = 0; j < 3; ++j)
+			{
+				switch (j)
+				{
+				case 0: globalColorArray[i][j] = r; break;
+				case 1: globalColorArray[i][j] = g; break;
+				case 2: globalColorArray[i][j] = b; break;
+				}
+			}
+		}
+		init();
+		glutPostRedisplay();
+		break;
+	default:
+		break;
+	}
+}
 
 /////////////////////////////////////////////////////
 //  int
 /////////////////////////////////////////////////////
-void init(void)
+void init()
 {
 	glGenVertexArrays(NumVAOs, VAOs);
 	glBindVertexArray(VAOs[Triangles]);
 
-	GLfloat vertices[NumVertices][2] = {
-		{ -0.90f, -0.9f },	// Triangle 1
-		{ 0.85f, -0.9f },
-		{ -0.90f, 0.85f },
-		{ 0.90f, -0.85f },	// Triangle 2
-		{ 0.90f, 0.90f },
-		{ -0.85f, 0.90f },
-		{ 0.0f, 0.5f},		// Center triangle
-		{ -0.5f, -0.5f},
-		{ 0.50f, -0.5f}
-	};
-	
-	GLfloat colors[NumVertices][3] = {
-		{ 0.0f, 0.0f, 1.0f }, // Triangle 1
-		{ 0.0f, 0.0f, 1.0f },
-		{ 0.0f, 0.0f, 1.0f },
-		{ 0.0f, 0.0f, 1.0f }, // Triangle 2
-		{ 0.0f, 0.0f, 1.0f },
-		{ 0.0f, 0.0f, 1.0f },
-		{ 1.0f, 0.0f, 0.0f }, // Center triangle
-		{ 0.0f, 0.0f, 1.0f },
-		{ 0.0f, 1.0f, 0.0f }
-	};
+	GLfloat vertices[NumVertices][2], colors[NumVertices][3];
+
+	// Vertex positions
+	for (int i = 0; i < NumVertices; ++i)
+	{
+		for (int j = 0; j < 2; ++j)
+		{
+			vertices[i][j] = globalPositionArray[i][j];
+			colors[i][j] = globalColorArray[i][j];
+		}
+
+		colors[i][2] = globalColorArray[i][2];
+	}
 
 	glGenBuffers(NumBuffers, Buffers);
 	glBindBuffer(GL_ARRAY_BUFFER, Buffers[ArrayBuffer]);
@@ -137,8 +164,44 @@ int main(int argc, char* argv[])
 	//for ( int i = 0; i < nExtensions; i++ )
 	//	cout << glGetStringi( GL_EXTENSIONS, i )  << endl;
 
+	// Initial values of the triangle color and position
+	GLfloat initVertices[NumVertices][2] = {
+		{ -0.90f, -0.9f },	// Triangle 1
+		{ 0.85f, -0.9f },
+		{ -0.90f, 0.85f },
+		{ 0.90f, -0.85f },	// Triangle 2
+		{ 0.90f, 0.90f },
+		{ -0.85f, 0.90f },
+		{ 0.0f, 0.5f },		// Center triangle
+		{ -0.5f, -0.5f },
+		{ 0.50f, -0.5f }
+	};
+
+	GLfloat initColors[NumVertices][3] = {
+		{ 0.0f, 0.0f, 1.0f }, // Triangle 1
+		{ 0.0f, 0.0f, 1.0f },
+		{ 0.0f, 0.0f, 1.0f },
+		{ 0.0f, 0.0f, 1.0f }, // Triangle 2
+		{ 0.0f, 0.0f, 1.0f },
+		{ 0.0f, 0.0f, 1.0f },
+		{ 1.0f, 0.0f, 0.0f }, // Center triangle
+		{ 0.0f, 0.0f, 1.0f },
+		{ 0.0f, 1.0f, 0.0f }
+	};
+
+	for (int i = 0; i < NumVertices; ++i)
+	{
+		for (int j = 0; j < 2; ++j)
+		{
+			globalPositionArray[i][j] = initVertices[i][j];
+			globalColorArray[i][j] = initColors[i][j];
+		}
+		globalColorArray[i][2] = initColors[i][2];
+	}
+
 	init();
 	glutDisplayFunc(display);
+	glutKeyboardFunc(keyboard);
 	glutMainLoop();
 
 	return 0;
