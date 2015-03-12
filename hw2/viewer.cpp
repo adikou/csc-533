@@ -29,18 +29,26 @@ enum color {_RED, _GREEN, _BLUE};
 enum cmd {_INVALID = -1, _V, _VT, _VN, _MTLLIB, _USEMTL, _NEWMTL, 
 		  _F, _S, _G, _O, _NUM_CMDS};
 enum mtlCmd {_MTL_INVALID = -1, _MTL_NEWMTL, _KA, _KD, _KS, _NUM_MTL_CMDS};
+enum control {_CTL_INVALID = -1, _OBJ, _RX, _RY, _RZ, _T, _CTL_S, _NUM_CTL_CMDS};
 
 string keywords[] = { "v", "vt", "vn", "mtllib", "usemtl", "newmtl",
 					  "f", "s", "g", "o"};
 string mtlKeywords[] = { "newmtl", "Ka", "Kd", "Ks" };
+string controls[] = {"obj", "rx", "ry", "rz", "t", "s"};
 
-std::vector< std::vector < GLfloat > > vertexPositions, 
-			normalPositions;
+
+/* Object infomation*/
+GLuint numObj = 0;
+class ViewerObject
+{
+	public: string objName;
+	std::vector< std::vector < GLfloat > > vertexPositions,
+		normalPositions;
+};
+std::vector <ViewerObject > viewerObjects;
 
 GLuint activeMaterialIndex;
-
 string materialFileName;
-
 class MaterialData
 {
 	public:	string materialName;
@@ -49,6 +57,39 @@ class MaterialData
 };
 
 std::vector< MaterialData > materialInfo;
+
+GLuint getObjectIndex(string objFileName)
+{
+	string target = objFileName.substr(0, objFileName.length() - 4);
+	for (GLuint i = 0; i < viewerObjects.size(); ++i)
+		if (viewerObjects[i].objName.compare(target) == 0)
+			return i;
+
+	return -1;
+}
+
+void displayMaterialInfo()
+{
+	cout << "Faces \n";
+	for (int i = 0; i < materialInfo.size(); ++i)
+	{
+		cout << materialInfo[i].materialName << " ";
+		for (int j = 0; j < materialInfo[i].faceIndexList.size(); ++j)
+		{
+			cout << "NumLines " << materialInfo[i].faceIndexList[j].size() << " ";
+			for (int k = 0; k < materialInfo[i].faceIndexList[j].size(); ++k)
+			{
+				cout << "Num Faces " << materialInfo[i].faceIndexList[j][k].size() << " ";
+				for (int l = 0; l < materialInfo[i].faceIndexList[j][k].size(); l++)
+				{
+					cout << materialInfo[i].faceIndexList[j][k][l] << " ";
+				}
+			}
+			cout << endl;
+		}
+		cout << endl;
+	}
+}
 
 // Tokenizer
 void tokenizeGeneral(const string &str,
@@ -171,29 +212,32 @@ void parseMaterialFile(string filename)
 
 void readObjFile(string objFileName)
 {
-	ifstream controlFile;
+	ifstream objFile;
 	string line, mtlName;
 	std::vector< string > lines;
 	std::vector< std::vector <string > > tokenList;
+	ViewerObject tempObj;
 
 	GLuint i = 0, j, k = 0;
 	GLuint cmdType;
-	controlFile.open(objFileName, ios::in);
+	objFile.open(objFileName, ios::in);
 
-	if (controlFile.is_open())
+	if (objFile.is_open())
 	{
-		while (getline(controlFile, line))
+		while (getline(objFile, line))
 			lines.push_back(line);
 
-		controlFile.close();
+		objFile.close();
 	}
 	else
 	{
 		cout << "\nInvalid control filename. Re-start viewer with valid "
-			"control filename" << endl;
+			"obj filename" << endl;
 		exit(EXIT_FAILURE);
 	}
 
+	// Set objName in tempObj
+	tempObj.objName = objFileName.substr(0, objFileName.length() - 4);
 	for (i = 0; i < lines.size(); ++i)
 	{
 		std::vector<string > tokens;
@@ -223,9 +267,9 @@ void readObjFile(string objFileName)
 				
 				switch (cmdType)
 				{
-				case _V : vertexPositions.push_back(vTemp); break;
+				case _V : tempObj.vertexPositions.push_back(vTemp); break;
 				case _VT:     break;
-				case _VN: normalPositions.push_back(vTemp); break;
+				case _VN: tempObj.normalPositions.push_back(vTemp); break;
 				}
 				break;
 			case _F:
@@ -245,6 +289,7 @@ void readObjFile(string objFileName)
 				tokenizeGeneral(tmp, indexTokens, " \n");
 				tokenizeFaceIndices(indexTokens, faceIndexTokens);
 				materialInfo[activeMaterialIndex].faceIndexList.push_back(faceIndexTokens);
+
 				break;
 			case _MTLLIB: 
 				materialFileName = tokens[1]; 
@@ -257,11 +302,63 @@ void readObjFile(string objFileName)
 			}
 		}
 	}
+
+	viewerObjects.push_back(tempObj);
+
 }
 
 void readControlFile(string controlFileName)
 {
-	readObjFile(controlFileName);
+	fstream controlFile;
+	string line, objFileName;
+	vector<string > ctlLines, ctlTokens;
+	GLuint i = 0, j, k = 0;
+	GLuint cmdType;
+	controlFile.open(controlFileName, ios::in);
+
+	if (controlFile.is_open())
+	{
+		while (getline(controlFile, line))
+			ctlLines.push_back(line);
+
+		controlFile.close();
+	}
+	else
+	{
+		cout << "\nInvalid control filename. Re-start viewer with valid "
+			"control filename" << endl;
+		exit(EXIT_FAILURE);
+	}
+
+
+	// Count nummber of Objects
+	for (i = 0; i < ctlLines.size(); ++i)
+	{
+		vector<string > countTokens;
+		tokenizeGeneral(ctlLines[i], countTokens);
+		if (!countTokens.empty())
+			if (countTokens[0].compare(controls[_OBJ]) == 0)
+				numObj++;
+	}
+
+	for (i = 0; i < ctlLines.size(); ++i)
+	{
+		tokenizeGeneral(ctlLines[i], ctlTokens);
+		if (!ctlTokens.empty())
+		{
+			cmdType = _CTL_INVALID;
+			for (k = _OBJ; k < _NUM_CTL_CMDS; ++k)
+				if (ctlTokens[0].compare(controls[k]) == 0)
+					cmdType = k;
+
+			switch (cmdType)
+			{
+			case _OBJ:	objFileName = ctlTokens[1]; 
+						readObjFile(objFileName);
+						break;
+			}
+		}
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////
