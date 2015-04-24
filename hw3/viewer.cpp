@@ -33,7 +33,7 @@ enum metaList { _META_OBJ_CMD, _META_MTL_CMD, _META_CONTROL,
 
 enum objCmd {_INVALID = -1, _V, _VT, _VN, _MTLLIB, _USEMTL, _NEWMTL,
 		  _F, _S, _G, _O, _NUM_CMDS};
-enum mtlCmd {_MTL_INVALID = -1, _MTL_NEWMTL, _KA, _KD, _KS, _NS, _NUM_MTL_CMDS};
+enum mtlCmd {_MTL_INVALID = -1, _MTL_NEWMTL, _KA, _KD, _KS, _NS, _EOF, _NUM_MTL_CMDS};
 enum control {_CTL_INVALID = -1, _OBJ, _RX, _RY, _RZ, _T, _CTL_S, _LIGHT, _VIEW, _NUM_CTL_CMDS};
 enum bufferIndex { _POS, _NORM_POS, _BUF_KA, _BUF_KD, _NUM_INDICES};
 
@@ -51,7 +51,7 @@ enum LightShaderProperties {_LS_INV = -1, _LS_IS_ENABLED, _LS_IS_LOCAL, _LS_IS_S
 
 string objKeywords[] = { "v", "vt", "vn", "mtllib", "usemtl", "newmtl",
 					  "f", "s", "g", "o"};
-string mtlKeywords[] = { "newmtl", "Ka", "Kd", "Ks", "Ns"};
+string mtlKeywords[] = { "newmtl", "Ka", "Kd", "Ks", "Ns", "eof"};
 string controls[] = {"obj", "rx", "ry", "rz", "t", "s", "light", "view"};
 
 /* Light attribute strings */
@@ -105,6 +105,7 @@ class MaterialData
 	public:	string materialName;
 			string materialPath;
 			GLfloat Ka[3], Kd[3], Ks[3], Ns;
+			GLboolean setKa, setKd, setKs, setNs;
 			std::vector <std::vector <std::vector<GLuint > > > faceIndexList;
 };
 
@@ -115,6 +116,7 @@ class ViewerObject
 			string objPath;
 			GLuint numVertices;
 			GLboolean isNormalThere;
+			GLfloat rx,ry,rz, tx,ty,tz, sx,sy,sz;
 			vector<string > materialFileList;
 	std::vector< std::vector < GLfloat > > vertexPositions,
 		normalPositions;
@@ -155,8 +157,6 @@ GLfloat xFocal = focalCoord.x, yFocal = focalCoord.y, zFocal = focalCoord.z;
 GLfloat xView, yView, zView;
 glm::vec3 up = vec3(viewCoord);
 glm::vec3 camDir, camR;
-
-GLfloat rx,ry,rz, tx,ty,tz, sx,sy,sz;
 
 GLfloat Near = 0.1f, Far = 400.0f;
 
@@ -483,7 +483,9 @@ void scaleUp(int objIndex)
 		float x = viewerObjects[objIndex].vertexPositions[i][0];
 		float y = viewerObjects[objIndex].vertexPositions[i][1];
 		float z = viewerObjects[objIndex].vertexPositions[i][2];
-		glm::mat4 scaleM = glm::scale(mat4(1.0f), vec3(sx, sy, sz));
+		glm::mat4 scaleM = glm::scale(mat4(1.0f), vec3(viewerObjects[objIndex].sx, 
+													   viewerObjects[objIndex].sy, 
+													   viewerObjects[objIndex].sz));
 		glm::vec4 tmpVec(x, y, z, 0.0f);
 		glm::vec4 tVec = scaleM * tmpVec; 
 		viewerObjects[objIndex].vertexPositions[i][0] = tVec.x;
@@ -499,7 +501,9 @@ void scaleUp(int objIndex)
 			float x = viewerObjects[objIndex].normalPositions[i][0];
 			float y = viewerObjects[objIndex].normalPositions[i][1];
 			float z = viewerObjects[objIndex].normalPositions[i][2];
-			glm::mat4 scaleM = glm::scale(mat4(1.0f), vec3(sx, sy, sz));
+			glm::mat4 scaleM = glm::scale(mat4(1.0f), vec3(viewerObjects[objIndex].sx, 
+													   viewerObjects[objIndex].sy, 
+													   viewerObjects[objIndex].sz));
 			glm::vec4 tmpVec(x, y, z, 0.0f);
 			glm::vec4 tVec = scaleM * tmpVec; 
 			viewerObjects[objIndex].vertexPositions[i][0] = tVec.x;
@@ -514,9 +518,9 @@ void translateObj(int objIndex)
 	for(GLuint i = 0; i < viewerObjects[objIndex].vertexPositions.size(); ++i)
 	{
 		
-		viewerObjects[objIndex].vertexPositions[i][0] += tx;
-		viewerObjects[objIndex].vertexPositions[i][1] += ty;
-		viewerObjects[objIndex].vertexPositions[i][2] += tz;
+		viewerObjects[objIndex].vertexPositions[i][0] += viewerObjects[objIndex].tx;
+		viewerObjects[objIndex].vertexPositions[i][1] += viewerObjects[objIndex].ty;
+		viewerObjects[objIndex].vertexPositions[i][2] += viewerObjects[objIndex].tz;
 		
 	}
 
@@ -537,13 +541,14 @@ void rotateObj(int objIndex)
 	
 		
 
-		glm::mat4 rotM = glm::rotate(mat4(1.0f), radians(rx), vec3(1, 0, 0));
+		glm::mat4 rotM = glm::rotate(mat4(1.0f), radians(viewerObjects[objIndex].rx), vec3(1, 0, 0));
 
-		glm::mat4 rot2M = glm::rotate(mat4(1.0f), radians(ry), vec3(0, 1, 0));
+		glm::mat4 rot2M = glm::rotate(mat4(1.0f), radians(viewerObjects[objIndex].ry), vec3(0, 1, 0));
 
-		glm::mat4 rot3M = glm::rotate(mat4(1.0f), radians(rz), vec3(0, 0, 1));
+		glm::mat4 rot3M = glm::rotate(mat4(1.0f), radians(viewerObjects[objIndex].rz), vec3(0, 0, 1));
 
 		ctlTransform = rot3M * rot2M * rotM;
+
 }
 
 
@@ -778,6 +783,26 @@ void handleView(std::vector<string >& viewTokens)
 	up = vec3(viewCoord);
 }
 
+int getNextRecognisableCommand(std::vector<string > lines, int fromWhere,
+				   int metaType)
+{
+	for(int i = fromWhere; i < lines.size(); ++i)
+	{
+		std::vector< string > mtlTokens;
+		tokenizeGeneral(lines[i], mtlTokens);
+		int cmd;
+		if(mtlTokens.size() != 0)
+			cmd = getCommand(mtlTokens[0], metaType); 
+		switch(cmd)
+		{
+			case _MTL_NEWMTL: case _KA: case _KD:
+			case _KS: case _NS: return cmd;
+		}
+	}
+
+	return _EOF;
+}
+
 void parseMaterialFile(int objIndex, string filename)
 {
 	ifstream materialFile;
@@ -788,7 +813,10 @@ void parseMaterialFile(int objIndex, string filename)
 	size_t len = 0;
     ssize_t read;
 
+    GLboolean first = GL_TRUE;
+
 	string tempS = filename.substr(0, filename.length() - 1);	
+	temp.setKa = temp.setKd = temp.setKs = temp.setNs = GL_FALSE;
 
 	materialFile.open(filename.c_str());	
 	if (materialFile.is_open())
@@ -832,46 +860,70 @@ void parseMaterialFile(int objIndex, string filename)
 					switch (mtlCmd)
 					{
 					case _KA: temp.Ka[j - 1] = atof(mtlTokens[j].c_str()); 
-							  if(!setKa && j == mtlTokens.size()-1)
+							  temp.setKa = GL_TRUE;
+							  /*if(!setKa && j == mtlTokens.size()-1)
 							  {
 								  Ka.x = temp.Ka[0];
 								  Ka.y = temp.Ka[1];
 								  Ka.z = temp.Ka[2];
 								  setKa = GL_TRUE;
-							  }
+							  }*/
 							  break;
 					case _KD: temp.Kd[j - 1] = atof(mtlTokens[j].c_str());
-								if(!setKd  && j == mtlTokens.size()-1)
+							  temp.setKd = GL_TRUE;
+								/*if(!setKd  && j == mtlTokens.size()-1)
 								{
 									Kd.x = temp.Kd[0];
 									Kd.y = temp.Kd[1];
 									Kd.z = temp.Kd[2];
 									setKd = GL_TRUE;
-								}
+								}*/
 							  break;
 					case _KS: temp.Ks[j - 1] = atof(mtlTokens[j].c_str());
-								if(!setKs  && j == mtlTokens.size()-1)
+							  temp.setKs = GL_TRUE;
+								/*if(!setKs  && j == mtlTokens.size()-1)
 								{
 									Ks.x = temp.Ks[0];
 									Ks.y = temp.Ks[1];
 									Ks.z = temp.Ks[2];
 									setKs = GL_TRUE;
-								}
+								}*/
 							  break;
 					case _NS: temp.Ns = atof(mtlTokens[j].c_str());
-							  if(!setNs  && j == mtlTokens.size()-1)
+							  temp.setNs = GL_TRUE;
+							  /*if(!setNs  && j == mtlTokens.size()-1)
 							  {
 								  Ns = temp.Ns;
 								  setNs = GL_TRUE;
-							  }
+							  }*/
 					}
 				}
 
-				if (count == 4)
-					viewerObjects[objIndex].materialInfo.push_back(temp);
+				/*if (count == 4)
+					viewerObjects[objIndex].materialInfo.push_back(temp);*/
 				
+				if(getNextRecognisableCommand(mtlLines, i+1, _META_MTL_CMD)
+					== _MTL_NEWMTL ||
+					getNextRecognisableCommand(mtlLines, i+1, _META_MTL_CMD)
+					== _EOF)
+				{
+					if(!temp.setKa)
+						temp.Ka[0] = temp.Ka[1] = temp.Ka[2] = 0.1;
+
+					if(!temp.setKd)
+						temp.Kd[0] = temp.Kd[1] = temp.Kd[2] = 0.9;
+
+					if(!temp.setKs)
+						temp.Ks[0] = temp.Ks[1] = temp.Ks[2] = 1.0;
+
+					if(!temp.setNs)
+						temp.Ns = 20.0;
+
+					viewerObjects[objIndex].materialInfo.push_back(temp);
+				}
 				break;
 			}
+
 		}
 	}
 }
@@ -911,6 +963,8 @@ void readObjFile(string objFileName, int objIndex)
 	tempObj.objPath = getPath(tempObj.objName);
 	viewerObjects.push_back(tempObj);
 	
+
+	addDummyMaterial(objIndex);
 	// Load the vertex array/buffer
 
 	for (i = 0; i < lines.size(); ++i)
@@ -948,12 +1002,6 @@ void readObjFile(string objFileName, int objIndex)
 				break;
 			case _F:
 
-				if (!isMaterialThere)
-				{
-					addDummyMaterial(objIndex);
-					activeMaterialIndex = getMaterialIndex(objIndex, "default");
-					isMaterialThere = GL_TRUE;
-				}
 				GLchar *bufSpaceTokens;
 				for (GLuint j = 0; j < lines[i].size(); ++j)
 				{
@@ -984,8 +1032,19 @@ void readObjFile(string objFileName, int objIndex)
 				break;
 			case _USEMTL:
 				mtlName = tokens[1];//.substr(0, tokens[1].size()-1);
-				isMaterialThere = GL_TRUE;
 				activeMaterialIndex = getMaterialIndex(objIndex, mtlName);
+				if(activeMaterialIndex == -1)
+					activeMaterialIndex = getMaterialIndex(objIndex, "default");
+				Ka = vec3(viewerObjects[objIndex].materialInfo[activeMaterialIndex].Ka[0],
+						  viewerObjects[objIndex].materialInfo[activeMaterialIndex].Ka[1],
+						  viewerObjects[objIndex].materialInfo[activeMaterialIndex].Ka[2]);
+				Kd = vec3(viewerObjects[objIndex].materialInfo[activeMaterialIndex].Kd[0],
+						  viewerObjects[objIndex].materialInfo[activeMaterialIndex].Kd[1],
+						  viewerObjects[objIndex].materialInfo[activeMaterialIndex].Kd[2]);
+				Ks = vec3(viewerObjects[objIndex].materialInfo[activeMaterialIndex].Ks[0],
+						  viewerObjects[objIndex].materialInfo[activeMaterialIndex].Ks[1],
+						  viewerObjects[objIndex].materialInfo[activeMaterialIndex].Ks[2]);
+				Ns = viewerObjects[objIndex].materialInfo[activeMaterialIndex].Ns;
 				break;
 			}
 		}
@@ -1057,21 +1116,31 @@ void readControlFile(string controlFileName)
 						readObjFile(objFileName, currentObj);
 						resetState(currentObj);
 						break;
-			case _RX:  rx = atof(ctlTokens[1].c_str()); 
-			  	   	   ry = ctlTokens.size() >= 4? atof(ctlTokens[3].c_str()) : 0; 
-		    		   rz = ctlTokens.size() >= 6? atof(ctlTokens[5].c_str()) : 0;
+			case _RX:  case _RY: case _RZ:
+
+					   for(int j = 0; j < ctlTokens.size(); j += 2)
+					   {
+					   		int rcmd = getCommand(ctlTokens[j], _META_CONTROL);
+					   		switch(rcmd)
+					   		{
+					   			case _RX: viewerObjects[currentObj].rx += atof(ctlTokens[j+1].c_str()); break;
+					   			case _RY: viewerObjects[currentObj].ry += atof(ctlTokens[j+1].c_str()); break;
+					   			case _RZ: viewerObjects[currentObj].rz += atof(ctlTokens[j+1].c_str()); break; 
+					   		}
+					   }
+
 					   rotateObj(currentObj); 
 					   resetState(currentObj);
 		    		   break;
-			case _T:  	 tx = atof(ctlTokens[1].c_str());
-					 	 ty = atof(ctlTokens[2].c_str());
-					 	 tz = atof(ctlTokens[3].c_str());
+			case _T:  	 viewerObjects[currentObj].tx = atof(ctlTokens[1].c_str());
+					 	 viewerObjects[currentObj].ty = atof(ctlTokens[2].c_str());
+					 	 viewerObjects[currentObj].tz = atof(ctlTokens[3].c_str());
 						 translateObj(currentObj);
 						 resetState(currentObj);
 						 break;
-			case _CTL_S: sx = atof(ctlTokens[1].c_str());
-					 	 sy = atof(ctlTokens[2].c_str());
-					 	 sz = atof(ctlTokens[3].c_str());
+			case _CTL_S: viewerObjects[currentObj].sx = atof(ctlTokens[1].c_str());
+					 	 viewerObjects[currentObj].sy = atof(ctlTokens[2].c_str());
+					 	 viewerObjects[currentObj].sz = atof(ctlTokens[3].c_str());
 						 scaleUp(currentObj);
 						 
 						 resetState(currentObj);
